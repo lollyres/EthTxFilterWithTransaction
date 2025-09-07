@@ -23,9 +23,14 @@ public class WalletService {
             if (wallet != null) {
                 logger.info(wallet.getAddress(), wallet.getPrivateKey());
 
-                TxSender.enqueue(() -> {
-                    sendTransactionService.sendFundsOnNewWallet(wallet, fromAddress, BANK_PRIVATE_KEY, "0.000000021");
-                });
+                if (sendTransactionService.sendFundsOnNewWallet(wallet.getAddress(), BANK_PRIVATE_KEY, "0.00000021")) {
+                    logger.info("Send two tx");
+                    sendTransactionService.sendFundsOnNewWallet(toAddress, wallet.getPrivateKey(), "0.0000000021");
+                }
+
+//                TxSender.enqueue(() -> {
+//                    sendTransactionService.sendFundsOnNewWallet(wallet, "0.000000021");
+//                });
 
             } else {
                 logger.warn("Wallet is empty");

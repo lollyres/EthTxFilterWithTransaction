@@ -7,6 +7,7 @@ import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameter;
 import org.web3j.protocol.core.methods.response.EthBlock;
 import org.web3j.protocol.core.methods.response.EthGetCode;
+import org.web3j.protocol.http.HttpService;
 import org.web3j.protocol.websocket.WebSocketService;
 import org.web3j.utils.Convert;
 
@@ -14,30 +15,32 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.ConnectException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Semaphore;
 
-@SuppressWarnings("ResultOfMethodCallIgnored")
 public class TransactionStreamService {
     private static final Logger logger = LoggerFactory.getLogger(TransactionStreamService.class);
 
     //    private static final String ALCHEMY_WS = "wss://eth-mainnet.g.alchemy.com/v2/I8j55L6wsHVgTT1s43_Si";
     private static final String INFURA_WS = "wss://mainnet.infura.io/ws/v3/6096c2acec854ec99f8b6945bda33ce5";
 
-    private static final WebSocketService ws = new WebSocketService(INFURA_WS, true);
     private static final BigDecimal minAmount = BigDecimal.valueOf(0.1); // Min Amount in ETH
-    private static final Web3j web3j = Web3j.build(ws);
+//    private static final Web3j web3j = Web3j.build(ws);
+    private static final WebSocketService ws = new WebSocketService(INFURA_WS, true);
+    private static final Web3j web3Ws   = Web3j.build(ws);
+    private static final Web3j web3Http = Web3j.build(new HttpService("https://mainnet.infura.io/v3/6096c2acec854ec99f8b6945bda33ce5"));
 
-    private static final Semaphore TX_PERMITS = new Semaphore(200);
-
+    private static final Semaphore TX_PERMITS = new Semaphore(1);
     private final WalletService walletService = new WalletService();
 
     public void connect() {
         try {
             ws.connect();
-            web3j.newHeadsNotifications()
+            web3Ws.newHeadsNotifications()
                     .subscribe(head -> {
                         String hash = head.getParams().getResult().getHash();
-                        web3j.ethGetBlockByHash(hash, true)
+                        web3Ws.ethGetBlockByHash(hash, true)
                                 .sendAsync()
                                 .thenAccept(block -> {
                                     if (block == null || block.getBlock() == null) {
@@ -49,20 +52,27 @@ public class TransactionStreamService {
 
                                     logger.info("Block: {} Transactions Count: {}", blockNum, block.getBlock().getTransactions().size());
 
+                                    List<EthBlock.TransactionObject> txList = new ArrayList();
+
                                     block.getBlock().getTransactions().forEach(txResult -> {
                                         EthBlock.TransactionObject tx = (EthBlock.TransactionObject) txResult.get();
 
-                                        if (TX_PERMITS.tryAcquire()) {
-                                            Thread.ofVirtual().start(() -> {
-                                                try {
-                                                    this.processTransaction(tx, blockNum);
-                                                } finally {
-                                                    TX_PERMITS.release();
-                                                }
-                                            });
-                                        }
+                                        txList.add(tx);
+//                                        this.processTransaction(tx, blockNum);
+
+//                                        if (TX_PERMITS.tryAcquire()) {
+//                                            Thread.ofVirtual().start(() -> {
+//                                                try {
+//                                                    this.processTransaction(tx, blockNum);
+//                                                } finally {
+//                                                    TX_PERMITS.release();
+//                                                }
+//                                            });
+//                                        }
 
                                     });
+
+                                    this.processTransaction(txList, blockNum);
                                 });
                     }, throwable -> {
                         if (throwable instanceof UndeliverableException) {
@@ -78,24 +88,63 @@ public class TransactionStreamService {
         }
     }
 
-    private void processTransaction(EthBlock.TransactionObject tx, BigInteger blockNum) {
-        String to = tx.getTo();
-        String from = tx.getFrom();
-        if (to == null) return;
+//    private void processTransaction(EthBlock.TransactionObject tx, BigInteger blockNum) {
+//        String to = tx.getTo();
+//        String from = tx.getFrom();
+//        logger.info("Get TX");
+//        if (to == null) return;
+//
+//        if (!"0x".equals(tx.getInput())) return;
+//
+//        try {
+//            EthGetCode code = web3j.ethGetCode(to, DefaultBlockParameter.valueOf(blockNum)).send();
+//            if (!"0x".equals(code.getCode())) return;
+//
+//            BigDecimal ethValue = Convert.fromWei(new BigDecimal(tx.getValue()), Convert.Unit.ETHER);
+//            if (this.filterTransactionByAmount(ethValue)) {
+//                String clean = to.substring(2);
+//                String prefix = "0x" + clean.substring(0, 2);
+//                String suffix = "0x" + clean.substring(clean.length() - 2);
+//
+//                logger.info("start processing");
+//                walletService.processWallet(prefix, suffix, to, from);
+//
+////                if (TX_PERMITS.tryAcquire()) {
+////                    Thread.ofVirtual().start(() -> {
+////                        try {
+////                            walletService.processWallet(prefix, suffix, to, from);
+////                        } finally {
+////                            TX_PERMITS.release();
+////                        }
+////                    });
+////                }
+//            }
+//        } catch (IOException e) {
+//            logger.error("eth_getCode failed: {}", e.getMessage());
+//        }
+//    }
 
-        if (!"0x".equals(tx.getInput())) return;
+    private void processTransaction(List<EthBlock.TransactionObject> txList, BigInteger blockNum) {
+        txList.forEach(tx -> {
+            String to = tx.getTo();
+            String from = tx.getFrom();
+            logger.info("Get TX");
+            if (to == null) return;
 
-        try {
-            EthGetCode code = web3j.ethGetCode(to, DefaultBlockParameter.valueOf(blockNum)).send();
-            if (!"0x".equals(code.getCode())) return;
+            if (!"0x".equals(tx.getInput())) return;
 
-            BigDecimal ethValue = Convert.fromWei(new BigDecimal(tx.getValue()), Convert.Unit.ETHER);
-            if (this.filterTransactionByAmount(ethValue)) {
-                String clean = to.substring(2);
-                String prefix = "0x" + clean.substring(0, 2);
-                String suffix = "0x" + clean.substring(clean.length() - 2);
+            try {
+                EthGetCode code = web3Http.ethGetCode(to, DefaultBlockParameter.valueOf(blockNum)).send();
+                if (!"0x".equals(code.getCode())) return;
 
-                walletService.processWallet(prefix, suffix, to, from);
+                BigDecimal ethValue = Convert.fromWei(new BigDecimal(tx.getValue()), Convert.Unit.ETHER);
+                if (this.filterTransactionByAmount(ethValue)) {
+                    String clean = to.substring(2);
+                    String prefix = "0x" + clean.substring(0, 2);
+                    String suffix = "0x" + clean.substring(clean.length() - 2);
+
+                    logger.info("start processing");
+                    walletService.processWallet(prefix, suffix, to, from);
 
 //                if (TX_PERMITS.tryAcquire()) {
 //                    Thread.ofVirtual().start(() -> {
@@ -106,10 +155,12 @@ public class TransactionStreamService {
 //                        }
 //                    });
 //                }
+                }
+            } catch (IOException e) {
+                logger.error("eth_getCode failed: {}", e.getMessage());
+                this.connect();
             }
-        } catch (IOException e) {
-            logger.error("eth_getCode failed: {}", e.getMessage());
-        }
+        });
     }
 
     private boolean filterTransactionByAmount(BigDecimal ethValue) {
