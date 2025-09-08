@@ -6,7 +6,6 @@ import com.cryptrofilter.ethGenService.records.Hit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.Optional;
 
@@ -14,24 +13,23 @@ public class WalletService {
     private static final Logger logger = LoggerFactory.getLogger(WalletService.class);
 
     private static final SendTransactionService sendTransactionService = new SendTransactionService();
+    private static final EIP1559Tx eip1559tx = new EIP1559Tx();
     private static final String BANK_PRIVATE_KEY = "0x43d445f3327606850e3507468849a4a4cc8e5809364759a44e172820ebb2c3a6";
 
     public void processWallet(String prefix, String suffix, String toAddress, String fromAddress) {
         try {
+            logger.info("Address example: {}", toAddress);
             Wallet wallet = this.generateWallet(prefix, suffix);
 
             if (wallet != null) {
-                logger.info(wallet.getAddress(), wallet.getPrivateKey());
+//                logger.info(wallet.getAddress(), wallet.getPrivateKey());
+//                eip1559tx.sendZeroTxEip1559(BANK_PRIVATE_KEY, wallet.getAddress());
 
-                if (sendTransactionService.sendFundsOnNewWallet(wallet.getAddress(), BANK_PRIVATE_KEY, "0.00000021")) {
-                    logger.info("Send two tx");
-                    sendTransactionService.sendFundsOnNewWallet(toAddress, wallet.getPrivateKey(), "0.0000000021");
+                if (sendTransactionService.sendFundsOnNewWallet(wallet.getAddress(), BANK_PRIVATE_KEY, "0.000021")) {
+                    logger.info("Send second tx");
+                    Thread.sleep(Duration.ofSeconds(10));
+                    sendTransactionService.sendZeroTxUltraCheap(wallet.getPrivateKey(), fromAddress);
                 }
-
-//                TxSender.enqueue(() -> {
-//                    sendTransactionService.sendFundsOnNewWallet(wallet, "0.000000021");
-//                });
-
             } else {
                 logger.warn("Wallet is empty");
             }

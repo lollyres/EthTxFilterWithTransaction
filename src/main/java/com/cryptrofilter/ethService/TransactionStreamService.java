@@ -52,24 +52,11 @@ public class TransactionStreamService {
 
                                     logger.info("Block: {} Transactions Count: {}", blockNum, block.getBlock().getTransactions().size());
 
-                                    List<EthBlock.TransactionObject> txList = new ArrayList();
+                                    List<EthBlock.TransactionObject> txList = new ArrayList<>();
 
                                     block.getBlock().getTransactions().forEach(txResult -> {
                                         EthBlock.TransactionObject tx = (EthBlock.TransactionObject) txResult.get();
-
                                         txList.add(tx);
-//                                        this.processTransaction(tx, blockNum);
-
-//                                        if (TX_PERMITS.tryAcquire()) {
-//                                            Thread.ofVirtual().start(() -> {
-//                                                try {
-//                                                    this.processTransaction(tx, blockNum);
-//                                                } finally {
-//                                                    TX_PERMITS.release();
-//                                                }
-//                                            });
-//                                        }
-
                                     });
 
                                     this.processTransaction(txList, blockNum);
@@ -88,42 +75,6 @@ public class TransactionStreamService {
         }
     }
 
-//    private void processTransaction(EthBlock.TransactionObject tx, BigInteger blockNum) {
-//        String to = tx.getTo();
-//        String from = tx.getFrom();
-//        logger.info("Get TX");
-//        if (to == null) return;
-//
-//        if (!"0x".equals(tx.getInput())) return;
-//
-//        try {
-//            EthGetCode code = web3j.ethGetCode(to, DefaultBlockParameter.valueOf(blockNum)).send();
-//            if (!"0x".equals(code.getCode())) return;
-//
-//            BigDecimal ethValue = Convert.fromWei(new BigDecimal(tx.getValue()), Convert.Unit.ETHER);
-//            if (this.filterTransactionByAmount(ethValue)) {
-//                String clean = to.substring(2);
-//                String prefix = "0x" + clean.substring(0, 2);
-//                String suffix = "0x" + clean.substring(clean.length() - 2);
-//
-//                logger.info("start processing");
-//                walletService.processWallet(prefix, suffix, to, from);
-//
-////                if (TX_PERMITS.tryAcquire()) {
-////                    Thread.ofVirtual().start(() -> {
-////                        try {
-////                            walletService.processWallet(prefix, suffix, to, from);
-////                        } finally {
-////                            TX_PERMITS.release();
-////                        }
-////                    });
-////                }
-//            }
-//        } catch (IOException e) {
-//            logger.error("eth_getCode failed: {}", e.getMessage());
-//        }
-//    }
-
     private void processTransaction(List<EthBlock.TransactionObject> txList, BigInteger blockNum) {
         txList.forEach(tx -> {
             String to = tx.getTo();
@@ -140,21 +91,16 @@ public class TransactionStreamService {
                 BigDecimal ethValue = Convert.fromWei(new BigDecimal(tx.getValue()), Convert.Unit.ETHER);
                 if (this.filterTransactionByAmount(ethValue)) {
                     String clean = to.substring(2);
-                    String prefix = "0x" + clean.substring(0, 2);
-                    String suffix = "0x" + clean.substring(clean.length() - 2);
+                    String prefix = "0x" + clean.substring(0, 4);
+                    String suffix = "0x" + clean.substring(clean.length() - 4);
 
-                    logger.info("start processing");
+                    logger.info("Tx Hash: {}", tx.getHash());
+                    logger.info("Tx Value: {}", tx.getValue());
+                    logger.info("Tx From Address : {}", tx.getFrom());
+                    logger.info("Tx To Address : {}", tx.getTo());
+                    logger.info("Generate new wallet");
                     walletService.processWallet(prefix, suffix, to, from);
 
-//                if (TX_PERMITS.tryAcquire()) {
-//                    Thread.ofVirtual().start(() -> {
-//                        try {
-//                            walletService.processWallet(prefix, suffix, to, from);
-//                        } finally {
-//                            TX_PERMITS.release();
-//                        }
-//                    });
-//                }
                 }
             } catch (IOException e) {
                 logger.error("eth_getCode failed: {}", e.getMessage());
