@@ -175,7 +175,6 @@ public final class SendTransactionService {
         }
     }
 
-    // 1) очень дешёвый gasPrice от текущего эталона узла
     private BigInteger ultraCheapGasPrice(int divisor) throws Exception {
         // divisor: 4, 8, 16 — насколько «режем» цену
         BigInteger gp = web3j.ethGasPrice().send().getGasPrice();
@@ -183,7 +182,6 @@ public final class SendTransactionService {
         return cheap.max(ONE_GWEI); // не меньше 1 gwei
     }
 
-    // 2) подождать, пока сеть «дешевая» (грубая прокси без baseFee)
     private BigInteger waitForCheapGas(long maxWaitMillis, BigInteger capGwei) throws Exception {
         long deadline = System.currentTimeMillis() + maxWaitMillis;
         BigInteger cap = capGwei.multiply(ONE_GWEI); // cap в gwei → wei
