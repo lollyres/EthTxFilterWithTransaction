@@ -1,5 +1,4 @@
 package com.cryptrofilter;
-import com.cryptrofilter.ethService.TransactionPoolingService;
 import com.cryptrofilter.ethService.TransactionStreamService;
 
 public class Main {

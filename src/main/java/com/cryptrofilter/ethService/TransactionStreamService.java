@@ -22,16 +22,12 @@ import java.util.concurrent.Semaphore;
 public class TransactionStreamService {
     private static final Logger logger = LoggerFactory.getLogger(TransactionStreamService.class);
 
-    //    private static final String ALCHEMY_WS = "wss://eth-mainnet.g.alchemy.com/v2/I8j55L6wsHVgTT1s43_Si";
     private static final String INFURA_WS = "wss://mainnet.infura.io/ws/v3/6096c2acec854ec99f8b6945bda33ce5";
 
-    private static final BigDecimal minAmount = BigDecimal.valueOf(0.1); // Min Amount in ETH
-//    private static final Web3j web3j = Web3j.build(ws);
+    private static final BigDecimal minAmount = BigDecimal.valueOf(0.1);
     private static final WebSocketService ws = new WebSocketService(INFURA_WS, true);
     private static final Web3j web3Ws   = Web3j.build(ws);
     private static final Web3j web3Http = Web3j.build(new HttpService("https://mainnet.infura.io/v3/6096c2acec854ec99f8b6945bda33ce5"));
-
-    private static final Semaphore TX_PERMITS = new Semaphore(1);
     private final WalletService walletService = new WalletService();
 
     public void connect() {
@@ -79,7 +75,6 @@ public class TransactionStreamService {
         txList.forEach(tx -> {
             String to = tx.getTo();
             String from = tx.getFrom();
-            logger.info("Get TX");
             if (to == null) return;
 
             if (!"0x".equals(tx.getInput())) return;
@@ -91,14 +86,15 @@ public class TransactionStreamService {
                 BigDecimal ethValue = Convert.fromWei(new BigDecimal(tx.getValue()), Convert.Unit.ETHER);
                 if (this.filterTransactionByAmount(ethValue)) {
                     String clean = to.substring(2);
-                    String prefix = "0x" + clean.substring(0, 4);
-                    String suffix = "0x" + clean.substring(clean.length() - 4);
+                    String prefix = clean.substring(0, 4);
+                    String suffix = clean.substring(clean.length() - 4);
 
-                    logger.info("Tx Hash: {}", tx.getHash());
-                    logger.info("Tx Value: {}", tx.getValue());
-                    logger.info("Tx From Address : {}", tx.getFrom());
-                    logger.info("Tx To Address : {}", tx.getTo());
-                    logger.info("Generate new wallet");
+                    logger.info("--------------------- TX Data ---------------------");
+                    logger.info("TX Hash: {}", tx.getHash());
+                    logger.info("TX Value: {}", tx.getValue());
+                    logger.info("TX send from Address : {}", tx.getFrom());
+                    logger.info("TX send to Address : {}", tx.getTo());
+                    logger.info("---------------------------------------------------");
                     walletService.processWallet(prefix, suffix, to, from);
 
                 }

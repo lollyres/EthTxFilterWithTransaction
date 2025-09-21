@@ -22,11 +22,8 @@ dependencies {
 
     implementation 'ch.qos.logback:logback-classic:1.5.18'
 
-    implementation 'org.web3j:core:5.0.0'
+    implementation 'org.web3j:core:4.10.3'
 
-    // JCuda: укажите версию под вашу CUDA и OS
-//    implementation 'org.jcuda:jcuda:11.8.0'
-//    runtimeOnly   'org.jcuda:jcuda-natives:11.8.0:osx-x86_64' // замените на :windows-x86_64 или :osx-x86_64
 }
 
 java {
